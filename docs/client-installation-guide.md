@@ -4,7 +4,7 @@
 
 - Git
 - Node.js/npm
-- 网关地址，例如 `http://intranet-184:8080`
+- 网关地址：`http://intranet-184:8080`
 - token，或飞书登录方式
 
 ## 给 AI Agent 的客户端安装任务
@@ -169,6 +169,7 @@ curl http://intranet-184:8080/health
 ```
 
 如果本机无法访问，通常是内网、VPN、防火墙或网关地址问题。不要通过启动本地服务来解决客户端连接失败。
+如果 `intranet-184` 无法解析，先尝试完整域名 `intranet-184.mercury.com`，或使用网关服务器 IP。
 
 ### 看不到某个 dataset 或字段
 
