@@ -78,3 +78,25 @@ def test_compiles_aggregate_query(sample_gateway_config):
 
     assert 'SELECT "region", sum("amount") AS "total_amount"' in compiled.sql
     assert 'GROUP BY "region"' in compiled.sql
+
+
+def test_allows_ordering_aggregate_query_by_output_alias(sample_gateway_config):
+    compiled = compile_for_analyst(sample_gateway_config, {
+        "dataset": "orders",
+        "group_by": ["region"],
+        "aggregates": [{"func": "sum", "field": "amount", "as": "total_amount"}],
+        "order_by": [{"field": "total_amount", "direction": "desc"}],
+        "limit": 10,
+    })
+
+    assert 'ORDER BY "total_amount" DESC' in compiled.sql
+
+
+def test_rejects_ordering_by_hidden_column(sample_gateway_config):
+    with pytest.raises(PermissionDenied):
+        compile_for_analyst(sample_gateway_config, {
+            "dataset": "orders",
+            "select": ["order_id"],
+            "order_by": [{"field": "customer_email", "direction": "asc"}],
+            "limit": 10,
+        })

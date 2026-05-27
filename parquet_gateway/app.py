@@ -6,9 +6,12 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 from pydantic import ValidationError
 
+from parquet_gateway.admin_config import discover_parquet_datasets, read_admin_config, save_admin_config_yaml
+from parquet_gateway.admin_ui import ADMIN_CONFIG_UI_HTML
 from parquet_gateway.audit import AuditEvent, AuditLog
 from parquet_gateway.auth import Principal, TokenAuthenticator
 from parquet_gateway.config import GatewayConfig, load_config
@@ -19,6 +22,10 @@ from parquet_gateway.feishu import FeishuExchangeRequest, FeishuOAuthClient, exc
 from parquet_gateway.models import QueryRequest, QueryResponse
 from parquet_gateway.policy import list_visible_datasets, resolve_dataset_access
 from parquet_gateway.query_builder import compile_query
+
+
+class AdminConfigSaveRequest(BaseModel):
+    yaml: str
 
 
 def create_app(feishu_client=None) -> FastAPI:
@@ -33,9 +40,17 @@ def create_app(feishu_client=None) -> FastAPI:
     def current_principal(authorization: str | None = Header(default=None)) -> Principal:
         return authenticator.authenticate_header(authorization)
 
+    def current_admin(principal: Principal = Depends(current_principal)) -> Principal:
+        if "admin" not in principal.roles:
+            raise PermissionDenied("admin role is required")
+        return principal
+
     @app.exception_handler(GatewayError)
     async def gateway_error_handler(_, exc: GatewayError) -> JSONResponse:
-        return JSONResponse(status_code=exc.status_code, content={"error": {"code": exc.code, "message": exc.message}})
+        error: dict[str, object] = {"code": exc.code, "message": exc.message}
+        if exc.details is not None:
+            error["details"] = exc.details
+        return JSONResponse(status_code=exc.status_code, content={"error": error})
 
     @app.exception_handler(ValidationError)
     async def validation_error_handler(_, exc: ValidationError) -> JSONResponse:
@@ -90,13 +105,37 @@ def create_app(feishu_client=None) -> FastAPI:
 
     @app.get("/admin/audit")
     def audit_events(
-        principal: Principal = Depends(current_principal),
+        principal: Principal = Depends(current_admin),
         limit: int = 100,
     ) -> dict[str, object]:
-        if "admin" not in principal.roles:
-            raise PermissionDenied("admin role is required to read audit events")
         bounded_limit = min(max(limit, 1), 1000)
         return {"events": audit.recent(bounded_limit)}
+
+    @app.get("/admin/config")
+    def admin_config(_: Principal = Depends(current_admin)) -> dict[str, object]:
+        return read_admin_config(config_path())
+
+    @app.get("/admin/config/discover-datasets")
+    def admin_discover_datasets(_: Principal = Depends(current_admin)) -> dict[str, object]:
+        return discover_parquet_datasets(config)
+
+    @app.get("/admin/config-ui", response_class=HTMLResponse)
+    def admin_config_ui() -> str:
+        return ADMIN_CONFIG_UI_HTML
+
+    @app.put("/admin/config")
+    def save_admin_config(
+        request: AdminConfigSaveRequest,
+        _: Principal = Depends(current_admin),
+    ) -> dict[str, object]:
+        result = save_admin_config_yaml(config_path(), request.yaml)
+        reset_config_cache()
+        return result
+
+    @app.post("/admin/config/reload")
+    def reload_admin_config(_: Principal = Depends(current_admin)) -> dict[str, object]:
+        reset_config_cache()
+        return {"reloaded": True}
 
     @app.post("/auth/feishu/exchange")
     def feishu_exchange(request: FeishuExchangeRequest) -> dict[str, object]:
@@ -109,8 +148,11 @@ def create_app(feishu_client=None) -> FastAPI:
 
 @lru_cache(maxsize=1)
 def get_config() -> GatewayConfig:
-    path = os.environ.get("PARQUET_GATEWAY_CONFIG", "config/example.yml")
-    return load_config(Path(path))
+    return load_config(config_path())
+
+
+def config_path() -> Path:
+    return Path(os.environ.get("PARQUET_GATEWAY_CONFIG", "config/example.yml"))
 
 
 def reset_config_cache() -> None:

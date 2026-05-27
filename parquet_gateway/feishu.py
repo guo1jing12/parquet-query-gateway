@@ -18,6 +18,9 @@ class FeishuOAuthClientProtocol(Protocol):
     def exchange_code(self, code: str, redirect_uri: str) -> dict:
         ...
 
+    def get_user_info(self, access_token: str) -> dict:
+        ...
+
 
 class FeishuOAuthClient:
     def __init__(self, config: GatewayConfig):
@@ -52,8 +55,28 @@ class FeishuOAuthClient:
         data = raw.get("data", {})
         return {
             "access_token": data.get("access_token"),
+        }
+
+    def get_user_info(self, access_token: str) -> dict:
+        import json
+        import urllib.request
+
+        if not access_token:
+            raise AuthError("feishu token exchange did not return an access_token")
+        req = urllib.request.Request(
+            "https://open.feishu.cn/open-apis/authen/v1/user_info",
+            method="GET",
+            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=20) as response:
+            raw = json.loads(response.read().decode("utf-8"))
+        if raw.get("code", 0) != 0:
+            raise AuthError(f"feishu user info failed: {raw.get('msg', 'unknown error')}")
+        data = raw.get("data", {})
+        return {
             "open_id": data.get("open_id"),
             "email": data.get("email"),
+            "name": data.get("name"),
         }
 
 
@@ -67,10 +90,14 @@ def exchange_feishu_code_for_gateway_token(
     if request.redirect_uri != config.auth.feishu.redirect_uri:
         raise AuthError("redirect_uri does not match configured feishu redirect_uri")
 
-    profile = client.exchange_code(request.code, request.redirect_uri)
+    token_payload = client.exchange_code(request.code, request.redirect_uri)
+    profile = client.get_user_info(str(token_payload.get("access_token") or ""))
     user = resolve_feishu_user(config.auth.feishu_users, profile)
     principal = Principal.from_feishu_config(user)
     token, ttl = issue_gateway_token(config, principal)
+    name = profile.get("name")
+    open_id = profile.get("open_id")
+    email = profile.get("email")
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -78,16 +105,26 @@ def exchange_feishu_code_for_gateway_token(
         "user": {
             "id": principal.id,
             "roles": sorted(principal.roles),
+            "open_id": open_id,
+            "email": email,
+            "name": name,
         },
     }
 
 
 def resolve_feishu_user(users: list[FeishuUserConfig], profile: dict) -> FeishuUserConfig:
     open_id = profile.get("open_id")
-    email = profile.get("email")
+    name = profile.get("name")
     for user in users:
         if user.open_id and user.open_id == open_id:
             return user
-        if user.email and user.email == email:
+        if user.name and user.name == name:
             return user
-    raise PermissionDenied("feishu user is not mapped to gateway permissions")
+    raise PermissionDenied(
+        "feishu user is not mapped to gateway permissions",
+        details={
+            "open_id": open_id,
+            "email": profile.get("email"),
+            "name": name,
+        },
+    )

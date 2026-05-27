@@ -1,12 +1,16 @@
+from typing import Any
+
+
 class GatewayError(Exception):
     """Base class for expected gateway errors."""
 
     status_code = 400
     code = "gateway_error"
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.message = message
+        self.details = details
 
 
 class AuthError(GatewayError):

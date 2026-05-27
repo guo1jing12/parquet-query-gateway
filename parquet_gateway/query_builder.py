@@ -41,7 +41,6 @@ def compile_query(config: GatewayConfig, principal: Principal, request: QueryReq
 def validate_query_fields(access: DatasetAccess, request: QueryRequest) -> None:
     requested = set(request.select) | set(request.group_by)
     requested.update(filter_.field for filter_ in request.filters)
-    requested.update(order.field for order in request.order_by)
     requested.update(aggregate.field for aggregate in request.aggregates if aggregate.field)
     for field in requested:
         validate_identifier(field)
@@ -53,6 +52,16 @@ def validate_query_fields(access: DatasetAccess, request: QueryRequest) -> None:
         validate_identifier(alias)
     if len(aliases) != len(set(aliases)):
         raise BadQuery("aggregate aliases cannot contain duplicates")
+
+    orderable_fields = set(request.select) | set(request.group_by) | set(aliases)
+    if not request.aggregates and not request.select:
+        orderable_fields = set(access.allowed_columns)
+    for order in request.order_by:
+        validate_identifier(order.field)
+        if order.field not in aliases and order.field not in access.allowed_columns:
+            raise PermissionDenied(f"field {order.field!r} is not visible in dataset {access.dataset_id!r}")
+        if order.field not in orderable_fields:
+            raise BadQuery(f"order field {order.field!r} must be selected")
 
     if request.aggregates and request.select:
         raise BadQuery("use group_by, not select, when aggregates are present")
