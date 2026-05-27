@@ -14,6 +14,8 @@ Parquet 文件统一放在：
 
 ## 安装
 
+完整安装流程见：[Parquet 查询网关安装指南](docs/installation-guide.md)。
+
 ```bash
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
