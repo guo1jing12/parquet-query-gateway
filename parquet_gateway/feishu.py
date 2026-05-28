@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Protocol
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 import urllib.request
 
 from pydantic import BaseModel
@@ -10,6 +12,10 @@ from pydantic import BaseModel
 from parquet_gateway.auth import Principal, issue_gateway_token
 from parquet_gateway.config import FeishuUserConfig, GatewayConfig
 from parquet_gateway.errors import AuthError, PermissionDenied
+
+
+FEISHU_AUTHORIZE_URL = "https://accounts.feishu.cn/open-apis/authen/v1/authorize"
+LOGGER = logging.getLogger(__name__)
 
 
 class FeishuExchangeRequest(BaseModel):
@@ -58,8 +64,19 @@ class FeishuOAuthClient:
         if raw.get("code", 0) != 0:
             raise AuthError(f"feishu token exchange failed: {raw.get('msg', 'unknown error')}")
         data = raw.get("data", {})
+        LOGGER.info(
+            "feishu token exchange response keys: top=%s data=%s",
+            sorted(raw.keys()),
+            sorted(data.keys()) if isinstance(data, dict) else type(data).__name__,
+        )
         return {
-            "access_token": data.get("access_token"),
+            "access_token": (
+                data.get("user_access_token")
+                or data.get("access_token")
+                or data.get("token")
+                or raw.get("user_access_token")
+                or raw.get("access_token")
+            ),
         }
 
     def get_user_info(self, access_token: str) -> dict:
@@ -85,6 +102,26 @@ class FeishuOAuthClient:
             "email": data.get("email"),
             "name": data.get("name"),
         }
+
+
+def build_feishu_authorize_url(config: GatewayConfig, redirect_uri: str | None = None) -> dict[str, str]:
+    if config.auth is None or not config.auth.feishu.enabled:
+        raise AuthError("feishu auth is not enabled")
+    feishu = config.auth.feishu
+    if not feishu.app_id:
+        raise AuthError("feishu app_id is not configured")
+    actual_redirect_uri = redirect_uri or feishu.redirect_uri
+    if actual_redirect_uri != feishu.redirect_uri:
+        raise AuthError("redirect_uri does not match configured feishu redirect_uri")
+    query = urlencode({
+        "client_id": feishu.app_id,
+        "response_type": "code",
+        "redirect_uri": actual_redirect_uri,
+    })
+    return {
+        "auth_url": f"{FEISHU_AUTHORIZE_URL}?{query}",
+        "redirect_uri": actual_redirect_uri,
+    }
 
 
 def exchange_feishu_code_for_gateway_token(

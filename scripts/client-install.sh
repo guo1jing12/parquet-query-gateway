@@ -59,7 +59,8 @@ if [[ -n "$TOKEN" ]]; then
 EOF
 else
   cat <<EOF
-  export PARQUET_GATEWAY_TOKEN="<token from your administrator>"
+  # No token was provided. The first authenticated command will open Feishu login.
+  # You can also run: opencli parquet login
 EOF
 fi
 

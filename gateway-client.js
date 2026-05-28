@@ -1,12 +1,23 @@
-function gatewayBaseUrl() {
+import { loginWithFeishu, readSavedGatewayToken } from './auth-flow.js';
+
+export function gatewayBaseUrl() {
   return (process.env.PARQUET_GATEWAY_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
 }
 
-function gatewayToken() {
+export async function resolveGatewayToken({ autoLogin = true } = {}) {
   const token = process.env.PARQUET_GATEWAY_TOKEN;
-  if (!token) {
-    throw new Error('PARQUET_GATEWAY_TOKEN is required');
-  }
+  if (token) return token;
+  const savedToken = await readSavedGatewayToken();
+  if (savedToken) return savedToken;
+  if (!autoLogin) throw new Error('PARQUET_GATEWAY_TOKEN is required');
+  const payload = await loginWithFeishu({ gatewayUrl: gatewayBaseUrl() });
+  const loginToken = payload.access_token;
+  if (!loginToken) throw new Error('Feishu login did not return PARQUET_GATEWAY_TOKEN');
+  return loginToken;
+}
+
+async function gatewayToken() {
+  const token = await resolveGatewayToken();
   return token;
 }
 
@@ -16,7 +27,7 @@ export async function gatewayRequest(path, options = {}) {
     'Content-Type': 'application/json',
   };
   if (options.auth !== false) {
-    headers.Authorization = `Bearer ${gatewayToken()}`;
+    headers.Authorization = `Bearer ${await gatewayToken()}`;
   }
   const response = await fetch(`${gatewayBaseUrl()}${path}`, {
     method: options.method || 'GET',

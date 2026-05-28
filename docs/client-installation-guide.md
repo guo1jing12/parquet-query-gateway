@@ -6,6 +6,8 @@
 - 网关地址：`http://192.168.58.184:8080`
 - token，或飞书登录方式
 
+如果没有提供 token，客户端会通过网关获取飞书授权链接并打开浏览器登录。登录成功后 token 会保存到 `~/.parquet-gateway/token.json`，后续命令会自动读取。
+
 ## 给 AI Agent 的客户端安装任务
 
 把下面这段发给 AI Agent：
@@ -25,11 +27,12 @@
 2. 下载客户端安装包并解压。
 3. 运行 scripts/client-install.ps1。
 4. 设置 PARQUET_GATEWAY_URL。
-5. 设置 PARQUET_GATEWAY_TOKEN，或按飞书方式登录。
+5. 如果提供了 PARQUET_GATEWAY_TOKEN，则设置它；如果没有 token，运行 opencli parquet login，或直接运行下一步让命令自动打开飞书登录。
 6. 运行 opencli parquet smoke-test。
 7. 运行 opencli parquet datasets。
 
 如果无法访问网关地址，请暂停并把网络错误告诉我。
+如果网关没有开启飞书登录，且也没有提供 token，请暂停并把认证错误告诉我。
 ```
 
 ## 安装 OpenCLI 客户端
@@ -76,19 +79,22 @@ $env:PARQUET_GATEWAY_URL = "http://192.168.58.184:8080"
 $env:PARQUET_GATEWAY_TOKEN = "<your_token>"
 ```
 
-如果使用飞书登录，则不需要长期保存静态 token。设置网关地址和飞书授权 URL 后登录：
+如果使用飞书登录，则不需要长期保存静态 token。设置网关地址后登录：
 
 ```bash
 export PARQUET_GATEWAY_URL=http://192.168.58.184:8080
-export PARQUET_FEISHU_AUTH_URL="https://open.feishu.cn/open-apis/authen/v1/authorize?..."
 opencli parquet login
 ```
+
+如果网关不能自动提供授权链接，也可以手动设置 `PARQUET_FEISHU_AUTH_URL` 后再登录。
 
 登录成功后，命令会返回 `PARQUET_GATEWAY_TOKEN`，也会保存到：
 
 ```text
 ~/.parquet-gateway/token.json
 ```
+
+`opencli parquet smoke-test`、`opencli parquet datasets` 等命令会优先使用 `PARQUET_GATEWAY_TOKEN`，其次读取上面的本地 token 文件；如果两者都没有，会自动打开飞书登录。
 
 ## 验证
 

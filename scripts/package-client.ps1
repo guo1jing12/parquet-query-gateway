@@ -19,6 +19,7 @@ New-Item -ItemType Directory -Force (Join-Path $staging "docs") | Out-Null
 
 $files = @(
     "opencli-plugin.json",
+    "auth-flow.js",
     "gateway-client.js",
     "datasets.js",
     "schema.js",

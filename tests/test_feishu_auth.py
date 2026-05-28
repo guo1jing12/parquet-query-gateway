@@ -180,3 +180,30 @@ def test_feishu_http_error_becomes_auth_error(sample_gateway_config, tmp_path):
             assert "feishu token exchange failed" in exc.message
         else:
             raise AssertionError("expected HTTPError to be converted to AuthError")
+
+
+def test_feishu_oauth_client_accepts_user_access_token_field(sample_gateway_config, tmp_path):
+    config = load_config(write_feishu_config(sample_gateway_config, tmp_path / "feishu.yml"))
+    client = FeishuOAuthClient(config)
+    raw_response = {
+        "code": 0,
+        "msg": "success",
+        "data": {"user_access_token": "feishu-user-token"},
+    }
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+        def read(self):
+            import json
+
+            return json.dumps(raw_response).encode("utf-8")
+
+    with patch("urllib.request.urlopen", return_value=FakeResponse()):
+        payload = client.exchange_code("auth-code", "http://127.0.0.1:8765/callback")
+
+    assert payload["access_token"] == "feishu-user-token"

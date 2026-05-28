@@ -24,20 +24,24 @@ def test_opencli_plugin_commands_register_parquet_site():
 
 def test_opencli_plugin_login_uses_feishu_exchange():
     source = (ROOT / "login.js").read_text(encoding="utf-8")
+    auth_source = (ROOT / "auth-flow.js").read_text(encoding="utf-8")
 
-    assert "/auth/feishu/exchange" in source
+    assert "/auth/feishu/exchange" in auth_source
     assert "PARQUET_GATEWAY_TOKEN" in source
 
 
 def test_opencli_plugin_login_is_one_click_flow():
     source = (ROOT / "login.js").read_text(encoding="utf-8")
+    auth_source = (ROOT / "auth-flow.js").read_text(encoding="utf-8")
 
-    assert "createServer" in source
-    assert "openBrowser" in source
-    assert "waitForCallbackCode" in source
-    assert "saveGatewayToken" in source
-    assert "PARQUET_FEISHU_AUTH_URL" in source
-    assert "http://127.0.0.1:8765/callback" in source
+    assert "loginWithFeishu" in source
+    assert "createServer" in auth_source
+    assert "openBrowser" in auth_source
+    assert "waitForCallbackCode" in auth_source
+    assert "saveGatewayToken" in auth_source
+    assert "PARQUET_FEISHU_AUTH_URL" in auth_source
+    assert "/auth/feishu/authorize-url" in auth_source
+    assert "http://127.0.0.1:8765/callback" in auth_source
 
 
 def test_opencli_plugin_query_uses_gateway_not_local_files():
@@ -46,6 +50,8 @@ def test_opencli_plugin_query_uses_gateway_not_local_files():
 
     assert "PARQUET_GATEWAY_URL" in client_source
     assert "PARQUET_GATEWAY_TOKEN" in client_source
+    assert "readSavedGatewayToken" in client_source
+    assert "loginWithFeishu" in client_source
     assert "read_parquet" not in source
     assert "/query" in source
 

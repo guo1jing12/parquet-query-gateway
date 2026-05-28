@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlparse
+
 import yaml
 from fastapi.testclient import TestClient
 
@@ -66,6 +68,35 @@ def test_datasets_requires_auth(monkeypatch, sample_gateway_config, tmp_path):
     response = client.get("/datasets")
 
     assert response.status_code == 401
+
+
+def test_feishu_authorize_url_is_exposed_without_secret(monkeypatch, sample_gateway_config, tmp_path):
+    raw = yaml.safe_load(sample_gateway_config.read_text(encoding="utf-8"))
+    raw["auth"] = {
+        "gateway_token_secret": "gateway-secret",
+        "feishu": {
+            "enabled": True,
+            "app_id": "cli_test",
+            "app_secret": "feishu-secret",
+            "redirect_uri": "http://127.0.0.1:8765/callback",
+        },
+        "feishu_users": [],
+    }
+    sample_gateway_config.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    client = make_client(monkeypatch, sample_gateway_config, tmp_path)
+
+    response = client.get("/auth/feishu/authorize-url")
+
+    assert response.status_code == 200, response.json()
+    payload = response.json()
+    parsed = urlparse(payload["auth_url"])
+    params = parse_qs(parsed.query)
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "accounts.feishu.cn"
+    assert params["client_id"] == ["cli_test"]
+    assert params["response_type"] == ["code"]
+    assert params["redirect_uri"] == ["http://127.0.0.1:8765/callback"]
+    assert "feishu-secret" not in payload["auth_url"]
 
 
 def test_query_applies_permissions_and_audits(monkeypatch, sample_gateway_config, tmp_path):

@@ -299,7 +299,7 @@ sudo systemctl status parquet-gateway
 2. 配置 `app_id`、`app_secret`、`redirect_uri`
 3. 配置 `auth.feishu_users`，普通场景使用飞书姓名 `name` 即可
 4. 重启网关
-5. 设置授权 URL 并登录
+5. 设置网关地址并登录
 
 示例：
 
@@ -315,7 +315,7 @@ auth:
 `open_id` 是可选字段，更稳定但不要求普通用户自己提供。
 
 ```bash
-export PARQUET_FEISHU_AUTH_URL="https://open.feishu.cn/open-apis/authen/v1/authorize?..."
+export PARQUET_GATEWAY_URL=http://127.0.0.1:8080
 opencli parquet login
 ```
 
@@ -324,6 +324,8 @@ opencli parquet login
 ```text
 ~/.parquet-gateway/token.json
 ```
+
+后续 `opencli parquet ...` 命令会自动读取这个本地 token 文件；如果没有 token 文件，也会通过网关获取飞书授权链接并打开浏览器登录。
 
 如果浏览器不能自动打开，也可以手动获取授权码后执行：
 

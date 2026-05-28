@@ -152,11 +152,7 @@ $env:PARQUET_GATEWAY_URL = "http://127.0.0.1:8080"
 $env:PARQUET_GATEWAY_TOKEN = "analyst-token"
 ```
 
-如果使用飞书登录，先设置飞书授权 URL：
-
-```bash
-$env:PARQUET_FEISHU_AUTH_URL = "https://open.feishu.cn/open-apis/authen/v1/authorize?..."
-```
+如果使用飞书登录，只需要设置网关地址；没有 token 时命令会通过网关获取授权链接并打开浏览器。
 
 通过 OpenCLI 使用：
 
@@ -250,7 +246,7 @@ curl -X POST http://127.0.0.1:8080/query \
 示例：
 
 ```bash
-export PARQUET_FEISHU_AUTH_URL="https://open.feishu.cn/open-apis/authen/v1/authorize?..."
+export PARQUET_GATEWAY_URL=http://127.0.0.1:8080
 opencli parquet login
 ```
 
@@ -260,11 +256,7 @@ opencli parquet login
 ~/.parquet-gateway/token.json
 ```
 
-命令也会返回 `PARQUET_GATEWAY_TOKEN` 字段。把它设置到环境变量后即可查询：
-
-```bash
-export PARQUET_GATEWAY_TOKEN=pgw.xxx
-```
+命令也会返回 `PARQUET_GATEWAY_TOKEN` 字段。后续 `opencli parquet ...` 命令会优先使用环境变量里的 token；没有环境变量时，会自动读取 `~/.parquet-gateway/token.json`；两者都没有时，会自动打开飞书登录。
 
 这样做的原因：
 

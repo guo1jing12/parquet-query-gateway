@@ -18,7 +18,12 @@ from parquet_gateway.config import GatewayConfig, load_config
 from parquet_gateway.errors import GatewayError, NotFound
 from parquet_gateway.errors import PermissionDenied
 from parquet_gateway.executor import DuckDBExecutor
-from parquet_gateway.feishu import FeishuExchangeRequest, FeishuOAuthClient, exchange_feishu_code_for_gateway_token
+from parquet_gateway.feishu import (
+    FeishuExchangeRequest,
+    FeishuOAuthClient,
+    build_feishu_authorize_url,
+    exchange_feishu_code_for_gateway_token,
+)
 from parquet_gateway.models import QueryRequest, QueryResponse
 from parquet_gateway.policy import list_visible_datasets, resolve_dataset_access
 from parquet_gateway.query_builder import compile_query
@@ -173,6 +178,10 @@ def create_app(feishu_client=None) -> FastAPI:
     @app.post("/auth/feishu/exchange")
     def feishu_exchange(request: FeishuExchangeRequest) -> dict[str, object]:
         return exchange_feishu_code_for_gateway_token(config, actual_feishu_client, request)
+
+    @app.get("/auth/feishu/authorize-url")
+    def feishu_authorize_url(redirect_uri: str | None = None) -> dict[str, str]:
+        return build_feishu_authorize_url(config, redirect_uri)
 
     app.state.config = config
     app.state.audit = audit
