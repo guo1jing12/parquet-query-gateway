@@ -401,6 +401,23 @@ def test_admin_config_ui_adding_user_updates_yaml(monkeypatch, sample_gateway_co
     assert "renderYaml();" in add_source
 
 
+def test_admin_config_ui_user_field_changes_update_yaml(monkeypatch, sample_gateway_config, tmp_path):
+    client = make_client(monkeypatch, sample_gateway_config, tmp_path)
+
+    response = client.get("/admin/config-ui")
+
+    assert response.status_code == 200
+    html = response.text
+    assert "const syncUserCard = () => {" in html
+    assert "updateTitle();" in html
+    assert "syncUsersFromForm();" in html
+    assert "renderYaml();" in html
+    assert 'node.querySelectorAll("input,textarea").forEach((el) => el.addEventListener("input", syncUserCard));' in html
+    assert "renderRoleDropdown(node.querySelector(\".user-roles\"), user.roles || [], syncUserCard);" in html
+    assert "function renderRoleDropdown(container, selected, onChange)" in html
+    assert "if (onChange) onChange();" in html
+
+
 def test_admin_config_save_normalizes_empty_attributes(monkeypatch, sample_gateway_config, tmp_path):
     client = make_client(monkeypatch, sample_gateway_config, tmp_path)
     raw = yaml.safe_load(sample_gateway_config.read_text(encoding="utf-8"))

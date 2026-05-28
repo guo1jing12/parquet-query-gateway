@@ -294,11 +294,16 @@ ADMIN_CONFIG_UI_HTML = r"""<!doctype html>
       node.querySelector(".user-open-id").value = user.open_id || "";
       node.querySelector(".user-name").value = user.name || "";
       node.querySelector(".user-id").value = user.id || "";
-      renderRoleDropdown(node.querySelector(".user-roles"), user.roles || []);
+      const syncUserCard = () => {
+        updateTitle();
+        syncUsersFromForm();
+        renderYaml();
+      };
+      renderRoleDropdown(node.querySelector(".user-roles"), user.roles || [], syncUserCard);
       renderAttributeFields(node.querySelector(".user-attribute-fields"), user.attributes || {});
       node.querySelector(".user-attributes").value = JSON.stringify(user.attributes || {}, null, 2);
       const updateTitle = () => { node.querySelector(".user-title").textContent = node.querySelector(".user-id").value || node.querySelector(".user-name").value || node.querySelector(".user-open-id").value || "新用户"; };
-      node.querySelectorAll("input,textarea").forEach((el) => el.addEventListener("input", updateTitle));
+      node.querySelectorAll("input,textarea").forEach((el) => el.addEventListener("input", syncUserCard));
       node.querySelector(".remove-user").addEventListener("click", () => {
         node.remove();
         syncUsersFromForm();
@@ -318,7 +323,7 @@ ADMIN_CONFIG_UI_HTML = r"""<!doctype html>
       return Array.from(roles).sort((a, b) => a === "analyst" ? -1 : b === "analyst" ? 1 : a.localeCompare(b));
     }
 
-    function renderRoleDropdown(container, selected) {
+    function renderRoleDropdown(container, selected, onChange) {
       const selectedSet = new Set(selected || []);
       container.innerHTML = `
         <div class="role-dropdown">
@@ -340,7 +345,10 @@ ADMIN_CONFIG_UI_HTML = r"""<!doctype html>
         toggle.textContent = labels.length ? labels.join(", ") : "选择角色";
       };
       toggle.addEventListener("click", () => dropdown.classList.toggle("open"));
-      container.querySelectorAll(".role-check").forEach((input) => input.addEventListener("change", update));
+      container.querySelectorAll(".role-check").forEach((input) => input.addEventListener("change", () => {
+        update();
+        if (onChange) onChange();
+      }));
       update();
     }
 
