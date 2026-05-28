@@ -164,8 +164,8 @@ ADMIN_CONFIG_UI_HTML = r"""<!doctype html>
         <button class="danger remove-user">删除</button>
       </div>
       <div class="grid">
-        <label><span>open_id</span><input class="user-open-id" placeholder="ou_xxx" /></label>
         <label><span>name</span><input class="user-name" placeholder="飞书姓名" /></label>
+        <label><span>open_id（可选）</span><input class="user-open-id" placeholder="管理员可后续补充" /></label>
         <label><span>id</span><input class="user-id" placeholder="内部用户 ID" /></label>
         <label><span>roles</span><div class="user-roles"></div></label>
       </div>

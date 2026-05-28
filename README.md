@@ -27,7 +27,7 @@ Linux/macOS：
 ```bash
 git clone https://github.com/guo1jing12/parquet-query-gateway.git
 cd parquet-query-gateway
-bash scripts/client-install.sh --gateway-url http://intranet-184:8080
+bash scripts/client-install.sh --gateway-url http://192.168.58.184:8080
 ```
 
 Windows PowerShell：
@@ -35,7 +35,7 @@ Windows PowerShell：
 ```powershell
 git clone https://github.com/guo1jing12/parquet-query-gateway.git
 cd parquet-query-gateway
-.\scripts\client-install.ps1 -GatewayUrl "http://intranet-184:8080"
+.\scripts\client-install.ps1 -GatewayUrl "http://192.168.58.184:8080"
 ```
 
 ## 管理员部署
@@ -113,7 +113,7 @@ auth:
     app_secret: replace-with-feishu-app-secret
     redirect_uri: http://127.0.0.1:8765/callback
   feishu_users:
-    - open_id: ou_xxx
+    - name: 张三
       id: alice
       roles: [analyst]
       attributes:
@@ -249,7 +249,7 @@ curl -X POST http://127.0.0.1:8080/query \
 ```text
 用户登录飞书
   -> FastAPI 完成飞书 OAuth / OIDC 回调
-  -> 服务端根据飞书 open_id / user_id / email 映射内部用户和角色
+  -> 服务端根据飞书姓名 name 映射内部用户和角色
   -> 服务端签发本项目自己的短期访问 token
   -> OpenCLI 插件携带 PARQUET_GATEWAY_TOKEN 调用网关
 ```
@@ -276,7 +276,7 @@ export PARQUET_GATEWAY_TOKEN=pgw.xxx
 这样做的原因：
 
 - 权限仍然集中在服务端，OpenCLI 插件不能伪造角色。
-- 可以把飞书 open_id、邮箱、部门或用户组映射成 `analyst`、`admin` 等内部角色。
+- 可以先用飞书姓名 `name` 映射成 `analyst`、`admin` 等内部角色；`open_id` 可选，适合管理员后续补充成更稳定的唯一标识。
 - 飞书 App Secret 只保存在服务端配置里，不进入 OpenCLI 插件和用户本机。
 - 后续也可以替换成公司 SSO/OIDC，不影响 `opencli parquet ...` 命令形态。
 

@@ -297,9 +297,22 @@ sudo systemctl status parquet-gateway
 
 1. 编辑 `config/production.yml` 的 `auth.feishu`
 2. 配置 `app_id`、`app_secret`、`redirect_uri`
-3. 配置 `auth.feishu_users`
+3. 配置 `auth.feishu_users`，普通场景使用飞书姓名 `name` 即可
 4. 重启网关
 5. 设置授权 URL 并登录
+
+示例：
+
+```yaml
+auth:
+  feishu_users:
+    - name: 张三
+      id: zhangsan
+      roles: [analyst]
+      attributes: {}
+```
+
+`open_id` 是可选字段，更稳定但不要求普通用户自己提供。
 
 ```bash
 export PARQUET_FEISHU_AUTH_URL="https://open.feishu.cn/open-apis/authen/v1/authorize?..."
