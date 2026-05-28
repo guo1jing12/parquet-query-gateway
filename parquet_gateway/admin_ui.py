@@ -518,12 +518,24 @@ ADMIN_CONFIG_UI_HTML = r"""<!doctype html>
     function jsyamlDump(obj, indent = 0) {
       if (Array.isArray(obj)) {
         if (!obj.length) return "[]";
-        return obj.map((item) => " ".repeat(indent) + "- " + formatYamlValue(item, indent + 2)).join("\n");
+        return obj.map((item) => {
+          const prefix = " ".repeat(indent) + "-";
+          if (item && typeof item === "object") {
+            const rendered = jsyamlDump(item, indent + 2);
+            if (rendered === "{}" || rendered === "[]") return prefix + " " + rendered;
+            return prefix + "\n" + rendered;
+          }
+          return prefix + " " + formatScalar(item);
+        }).join("\n");
       }
       if (obj && typeof obj === "object") {
         if (!Object.keys(obj).length) return "{}";
         return Object.entries(obj).map(([key, value]) => {
-          if (value && typeof value === "object") return " ".repeat(indent) + key + ":\n" + jsyamlDump(value, indent + 2);
+          if (value && typeof value === "object") {
+            const rendered = jsyamlDump(value, indent + 2);
+            if (rendered === "{}" || rendered === "[]") return " ".repeat(indent) + key + ": " + rendered;
+            return " ".repeat(indent) + key + ":\n" + rendered;
+          }
           return " ".repeat(indent) + key + ": " + formatScalar(value);
         }).join("\n");
       }

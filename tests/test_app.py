@@ -367,7 +367,9 @@ def test_admin_config_ui_renders_empty_attributes_as_empty_mapping(monkeypatch, 
     assert response.status_code == 200
     html = response.text
     assert 'if (!Object.keys(obj).length) return "{}";' in html
-    assert 'if (rendered === "{}" || rendered === "[]") return rendered;' in html
+    assert 'const prefix = " ".repeat(indent) + "-";' in html
+    assert 'return " ".repeat(indent) + key + ": " + rendered;' in html
+    assert 'return " ".repeat(indent) + key + ":\\n" + rendered;' in html
 
 
 def test_admin_config_save_normalizes_empty_attributes(monkeypatch, sample_gateway_config, tmp_path):
