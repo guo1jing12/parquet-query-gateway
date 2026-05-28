@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import Protocol
+from urllib.error import HTTPError, URLError
+import urllib.request
 
 from pydantic import BaseModel
 
@@ -29,9 +32,6 @@ class FeishuOAuthClient:
     def exchange_code(self, code: str, redirect_uri: str) -> dict:
         # The concrete Feishu HTTP exchange is intentionally isolated here so
         # tests can inject a fake client and secrets never move into OpenCLI.
-        import urllib.request
-        import json
-
         if self.config.auth is None:
             raise AuthError("feishu auth is not configured")
         feishu = self.config.auth.feishu
@@ -48,8 +48,13 @@ class FeishuOAuthClient:
             method="POST",
             headers={"Content-Type": "application/json", "Accept": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=20) as response:
-            raw = json.loads(response.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=20) as response:
+                raw = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise AuthError(f"feishu token exchange failed: HTTP {exc.code}") from exc
+        except URLError as exc:
+            raise AuthError(f"feishu token exchange failed: {exc.reason}") from exc
         if raw.get("code", 0) != 0:
             raise AuthError(f"feishu token exchange failed: {raw.get('msg', 'unknown error')}")
         data = raw.get("data", {})
@@ -58,9 +63,6 @@ class FeishuOAuthClient:
         }
 
     def get_user_info(self, access_token: str) -> dict:
-        import json
-        import urllib.request
-
         if not access_token:
             raise AuthError("feishu token exchange did not return an access_token")
         req = urllib.request.Request(
@@ -68,8 +70,13 @@ class FeishuOAuthClient:
             method="GET",
             headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=20) as response:
-            raw = json.loads(response.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=20) as response:
+                raw = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise AuthError(f"feishu user info failed: HTTP {exc.code}") from exc
+        except URLError as exc:
+            raise AuthError(f"feishu user info failed: {exc.reason}") from exc
         if raw.get("code", 0) != 0:
             raise AuthError(f"feishu user info failed: {raw.get('msg', 'unknown error')}")
         data = raw.get("data", {})

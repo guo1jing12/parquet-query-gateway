@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import yaml
 from fastapi.testclient import TestClient
+from urllib.error import HTTPError
+from unittest.mock import patch
 
 from parquet_gateway.app import create_app, reset_config_cache
 from parquet_gateway.auth import TokenAuthenticator
 from parquet_gateway.config import load_config
-from parquet_gateway.errors import PermissionDenied
-from parquet_gateway.feishu import FeishuExchangeRequest, exchange_feishu_code_for_gateway_token
+from parquet_gateway.errors import AuthError, PermissionDenied
+from parquet_gateway.feishu import FeishuExchangeRequest, FeishuOAuthClient, exchange_feishu_code_for_gateway_token
 
 
 class FakeFeishuOAuthClient:
@@ -158,3 +160,23 @@ def test_unmapped_feishu_user_error_includes_profile(monkeypatch, sample_gateway
     assert error["details"]["open_id"] == "ou_alice"
     assert error["details"]["email"] == "alice@example.com"
     assert error["details"]["name"] == "Alice Zhang"
+
+
+def test_feishu_http_error_becomes_auth_error(sample_gateway_config, tmp_path):
+    config = load_config(write_feishu_config(sample_gateway_config, tmp_path / "feishu.yml"))
+    client = FeishuOAuthClient(config)
+    http_error = HTTPError(
+        "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
+        400,
+        "Bad Request",
+        hdrs={},
+        fp=None,
+    )
+
+    with patch("urllib.request.urlopen", side_effect=http_error):
+        try:
+            client.exchange_code("bad-code", "http://127.0.0.1:8765/callback")
+        except AuthError as exc:
+            assert "feishu token exchange failed" in exc.message
+        else:
+            raise AssertionError("expected HTTPError to be converted to AuthError")
