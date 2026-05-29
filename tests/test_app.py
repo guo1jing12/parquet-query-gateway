@@ -69,8 +69,8 @@ def test_client_version_endpoint_returns_update_metadata(monkeypatch, sample_gat
 
     assert response.status_code == 200
     assert response.json() == {
-        "client_version": "0.1.1",
-        "latest_version": "0.1.1",
+        "client_version": "0.1.4",
+        "latest_version": "0.1.4",
         "download_url": "/downloads/parquet-query-gateway-client.zip",
         "guide_url": "/client-installation-guide.md",
     }
@@ -83,7 +83,7 @@ def test_response_marks_outdated_client_version(monkeypatch, sample_gateway_conf
 
     assert response.status_code == 200
     assert response.headers["X-Parquet-Client-Version-Status"] == "outdated"
-    assert response.headers["X-Parquet-Client-Latest-Version"] == "0.1.1"
+    assert response.headers["X-Parquet-Client-Latest-Version"] == "0.1.4"
     assert response.headers["X-Parquet-Client-Download-Url"] == "/downloads/parquet-query-gateway-client.zip"
 
 
@@ -94,7 +94,7 @@ def test_response_marks_missing_client_version_as_outdated(monkeypatch, sample_g
 
     assert response.status_code == 200
     assert response.headers["X-Parquet-Client-Version-Status"] == "outdated"
-    assert response.headers["X-Parquet-Client-Latest-Version"] == "0.1.1"
+    assert response.headers["X-Parquet-Client-Latest-Version"] == "0.1.4"
 
 
 def test_datasets_requires_auth(monkeypatch, sample_gateway_config, tmp_path):

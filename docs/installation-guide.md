@@ -301,6 +301,23 @@ sudo systemctl status parquet-gateway
 4. 重启网关
 5. 设置网关地址并登录
 
+推荐把飞书应用后台的重定向 URL 配成网关回调地址，而不是用户本机 localhost：
+
+```text
+http://192.168.58.184:8080/auth/feishu/callback
+```
+
+对应的 `production.yml`：
+
+```yaml
+auth:
+  feishu:
+    enabled: true
+    app_id: cli_xxx
+    app_secret: xxx
+    redirect_uri: http://192.168.58.184:8080/auth/feishu/callback
+```
+
 示例：
 
 ```yaml
@@ -325,9 +342,9 @@ opencli parquet login
 ~/.parquet-gateway/token.json
 ```
 
-后续 `opencli parquet ...` 命令会自动读取这个本地 token 文件；如果没有 token 文件，也会通过网关获取飞书授权链接并打开浏览器登录。
+后续 `opencli parquet ...` 命令会自动读取这个本地 token 文件；如果没有 token 文件，也会通过网关创建一次性飞书登录会话并打开浏览器登录。
 
-如果浏览器不能自动打开，也可以手动获取授权码后执行：
+如果浏览器不能自动打开，复制终端输出里的授权链接到浏览器即可。只有在客户端回退到旧的 localhost 回调方式时，才需要手动获取授权码后执行：
 
 ```bash
 opencli parquet login <feishu_authorization_code>

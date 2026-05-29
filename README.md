@@ -104,7 +104,7 @@ auth:
     enabled: true
     app_id: cli_xxx
     app_secret: replace-with-feishu-app-secret
-    redirect_uri: http://127.0.0.1:8765/callback
+    redirect_uri: http://192.168.58.184:8080/auth/feishu/callback
   feishu_users:
     - name: 张三
       id: alice
@@ -250,13 +250,13 @@ export PARQUET_GATEWAY_URL=http://127.0.0.1:8080
 opencli parquet login
 ```
 
-`login` 会自动打开浏览器，监听本机 `127.0.0.1:8765/callback`，拿到飞书授权码后向网关换取 token，并保存到：
+`login` 会优先使用网关中转 OAuth：命令行创建一次性登录会话，浏览器授权后回到网关回调地址，命令行轮询拿到 gateway token 并保存到：
 
 ```text
 ~/.parquet-gateway/token.json
 ```
 
-命令也会返回 `PARQUET_GATEWAY_TOKEN` 字段。后续 `opencli parquet ...` 命令会优先使用环境变量里的 token；没有环境变量时，会自动读取 `~/.parquet-gateway/token.json`；两者都没有时，会自动打开飞书登录。
+命令也会返回 `PARQUET_GATEWAY_TOKEN` 字段。后续 `opencli parquet ...` 命令会优先使用环境变量里的 token；没有环境变量时，会自动读取 `~/.parquet-gateway/token.json`；两者都没有时，会自动创建网关登录会话并打开飞书登录。
 
 这样做的原因：
 

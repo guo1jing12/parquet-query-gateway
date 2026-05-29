@@ -1,6 +1,6 @@
 import { loginWithFeishu, readSavedGatewayToken } from './auth-flow.js';
 
-export const CLIENT_VERSION = '0.1.1';
+export const CLIENT_VERSION = '0.1.4';
 
 export function gatewayBaseUrl() {
   return (process.env.PARQUET_GATEWAY_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');

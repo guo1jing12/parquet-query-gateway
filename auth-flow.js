@@ -47,7 +47,21 @@ export async function loginWithFeishu({
   redirectUri = process.env.PARQUET_FEISHU_REDIRECT_URI || DEFAULT_REDIRECT_URI,
   timeoutSeconds = 180,
   savePath = tokenPath(),
+  pollIntervalMs = 2000,
 } = {}) {
+  if (!authUrl && !process.env.PARQUET_FEISHU_AUTH_URL && process.env.PARQUET_USE_LOCAL_CALLBACK !== '1') {
+    try {
+      return await loginWithGatewaySession({
+        gatewayUrl,
+        timeoutSeconds,
+        savePath,
+        pollIntervalMs,
+      });
+    } catch (err) {
+      if (!err?.gatewaySessionUnavailable) throw err;
+      console.error(`${err.message}\nFalling back to local browser callback login.`);
+    }
+  }
   const actualAuthUrl = authUrl || await discoverFeishuAuthUrl({ gatewayUrl, redirectUri });
   const code = await loginViaBrowser({
     authUrl: actualAuthUrl,
@@ -61,6 +75,61 @@ export async function loginWithFeishu({
   });
   await saveGatewayToken(savePath, payload);
   return payload;
+}
+
+export async function loginWithGatewaySession({
+  gatewayUrl,
+  timeoutSeconds = 180,
+  savePath = tokenPath(),
+  pollIntervalMs = 2000,
+} = {}) {
+  const sessionUrl = new URL('/auth/feishu/login-session', gatewayUrl);
+  const sessionResponse = await fetch(sessionUrl, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+  });
+  const sessionPayload = await readJsonResponse(sessionResponse);
+  if (!sessionResponse.ok) {
+    const message = sessionPayload?.error?.message || sessionPayload?.detail || sessionResponse.statusText;
+    const err = new Error(`Gateway-hosted Feishu login is not available: ${message}`);
+    if ([404, 405, 501].includes(sessionResponse.status)) err.gatewaySessionUnavailable = true;
+    throw err;
+  }
+  if (!sessionPayload.session_id || !sessionPayload.auth_url) {
+    throw new Error('Gateway did not return a Feishu login session');
+  }
+  console.error([
+    'Feishu login is waiting for gateway callback.',
+    '',
+    'If the browser does not open automatically, copy this authorization URL into your browser:',
+    sessionPayload.auth_url,
+    '',
+    `After login, Feishu should return to ${sessionPayload.redirect_uri || 'the gateway callback URL'}.`,
+    'This terminal will continue waiting and save the gateway token automatically.',
+  ].join('\n'));
+  openBrowser(sessionPayload.auth_url);
+
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  while (Date.now() < deadline) {
+    const pollUrl = new URL(`/auth/feishu/login-session/${encodeURIComponent(sessionPayload.session_id)}`, gatewayUrl);
+    const pollResponse = await fetch(pollUrl, { headers: { Accept: 'application/json' } });
+    const pollPayload = await readJsonResponse(pollResponse);
+    if (!pollResponse.ok) {
+      const message = pollPayload?.error?.message || pollPayload?.detail || pollResponse.statusText;
+      throw new Error(`Gateway login session failed: ${message}`);
+    }
+    if (pollPayload.status === 'complete') {
+      await saveGatewayToken(savePath, pollPayload);
+      return pollPayload;
+    }
+    if (pollPayload.status === 'error') {
+      const details = formatDetails(pollPayload.details);
+      const detailsSuffix = details ? `\n${details}` : '';
+      throw new Error(`Feishu login failed: ${pollPayload.message || 'unknown error'}${detailsSuffix}`);
+    }
+    await sleep(pollIntervalMs);
+  }
+  throw new Error(`Timed out waiting for Feishu gateway login after ${timeoutSeconds}s`);
 }
 
 export async function exchangeFeishuCode({ gatewayUrl, code, redirectUri }) {
@@ -81,12 +150,38 @@ export async function exchangeFeishuCode({ gatewayUrl, code, redirectUri }) {
   return payload;
 }
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+  return text ? JSON.parse(text) : {};
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatDetails(details) {
+  if (!details || typeof details !== 'object') return '';
+  const lines = Object.entries(details)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `  ${key}: ${value}`);
+  return lines.length ? `Details:\n${lines.join('\n')}` : '';
+}
+
 export async function loginViaBrowser({ authUrl, redirectUri, timeoutSeconds }) {
   if (!authUrl) {
     throw new Error('PARQUET_FEISHU_AUTH_URL, --auth-url, or gateway Feishu auth configuration is required when code is not provided');
   }
   const callbackPromise = waitForCallbackCode({ redirectUri, timeoutSeconds });
-  console.error(`Open this Feishu authorization URL if your browser does not open automatically:\n${authUrl}`);
+  console.error([
+    'Feishu login is waiting for a browser callback.',
+    '',
+    'If the browser does not open automatically, copy this authorization URL into your browser:',
+    authUrl,
+    '',
+    `After login, the browser should return to ${redirectUri}.`,
+    'If that page cannot be reached but the address bar contains code=..., copy that code and run:',
+    '  opencli parquet login "<code>"',
+  ].join('\n'));
   openBrowser(authUrl);
   return await callbackPromise;
 }
@@ -136,6 +231,7 @@ function waitForCallbackCode({ redirectUri, timeoutSeconds }) {
 }
 
 function openBrowser(url) {
+  if (process.env.PARQUET_DISABLE_BROWSER_OPEN === '1') return;
   const platform = process.platform;
   const command = platform === 'win32' ? 'powershell.exe' : platform === 'darwin' ? 'open' : 'xdg-open';
   const args = platform === 'win32'

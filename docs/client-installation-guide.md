@@ -6,7 +6,7 @@
 - 网关地址：`http://192.168.58.184:8080`
 - token，或飞书登录方式
 
-如果没有提供 token，客户端会通过网关获取飞书授权链接并打开浏览器登录。登录成功后 token 会保存到 `~/.parquet-gateway/token.json`，后续命令会自动读取。
+如果没有提供 token，客户端会通过网关创建一次性飞书登录会话并尝试打开浏览器。浏览器授权完成后会回到网关回调地址，命令行会自动轮询并把 token 保存到 `~/.parquet-gateway/token.json`。部分远程终端、受管 Windows 环境或默认浏览器策略不会自动弹出浏览器；这时请复制命令输出中的 Feishu authorization URL 到浏览器打开。
 
 ## 给 AI Agent 的客户端安装任务
 
@@ -27,12 +27,14 @@
 2. 下载客户端安装包并解压。
 3. 运行 scripts/client-install.ps1。
 4. 设置 PARQUET_GATEWAY_URL。
-5. 如果提供了 PARQUET_GATEWAY_TOKEN，则设置它；如果没有 token，运行 opencli parquet login，或直接运行下一步让命令自动打开飞书登录。
+5. 如果提供了 PARQUET_GATEWAY_TOKEN，则设置它；如果没有 token，运行 opencli parquet login，或直接运行下一步让命令进入飞书登录。
 6. 运行 opencli parquet smoke-test。
 7. 运行 opencli parquet datasets。
 
 如果无法访问网关地址，请暂停并把网络错误告诉我。
 如果网关没有开启飞书登录，且也没有提供 token，请暂停并把认证错误告诉我。
+如果没有弹出浏览器，请不要等待到超时；复制终端输出里的 Feishu authorization URL 到浏览器打开。
+如果飞书页面提示 redirect_uri 不匹配、应用不可用或无权限，请暂停并把页面错误告诉我。
 ```
 
 ## 安装 OpenCLI 客户端
@@ -87,6 +89,25 @@ opencli parquet login
 ```
 
 如果网关不能自动提供授权链接，也可以手动设置 `PARQUET_FEISHU_AUTH_URL` 后再登录。
+
+登录命令会优先使用网关中转 OAuth：命令行创建一次性登录会话，浏览器授权后回到网关，命令行自动轮询拿到 token。若浏览器没有自动弹出，请复制终端里输出的授权链接到浏览器打开：
+
+```text
+If the browser does not open automatically, copy this authorization URL into your browser:
+https://accounts.feishu.cn/open-apis/authen/v1/authorize?...
+```
+
+正常情况下浏览器会显示 `Parquet Gateway login complete`，原来的终端会自动保存 token。如果网关暂时不支持中转登录，客户端会回退到本机 `127.0.0.1:8765/callback` 方式；这时如果浏览器停在 `http://127.0.0.1:8765/callback?code=...`，但页面显示无法访问，也可以复制 `code=` 后面的值手动换取 token：
+
+```powershell
+opencli.cmd parquet login "<复制出来的code>"
+```
+
+如果只是操作时间不够，可以延长等待时间：
+
+```powershell
+opencli.cmd parquet login --timeout 600
+```
 
 登录成功后，命令会返回 `PARQUET_GATEWAY_TOKEN`，也会保存到：
 

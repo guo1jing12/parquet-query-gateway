@@ -99,12 +99,15 @@ class FeishuOAuthClient:
         data = raw.get("data", {})
         return {
             "open_id": data.get("open_id"),
-            "email": data.get("email"),
             "name": data.get("name"),
         }
 
 
-def build_feishu_authorize_url(config: GatewayConfig, redirect_uri: str | None = None) -> dict[str, str]:
+def build_feishu_authorize_url(
+    config: GatewayConfig,
+    redirect_uri: str | None = None,
+    state: str | None = None,
+) -> dict[str, str]:
     if config.auth is None or not config.auth.feishu.enabled:
         raise AuthError("feishu auth is not enabled")
     feishu = config.auth.feishu
@@ -113,11 +116,14 @@ def build_feishu_authorize_url(config: GatewayConfig, redirect_uri: str | None =
     actual_redirect_uri = redirect_uri or feishu.redirect_uri
     if actual_redirect_uri != feishu.redirect_uri:
         raise AuthError("redirect_uri does not match configured feishu redirect_uri")
-    query = urlencode({
+    query_payload = {
         "client_id": feishu.app_id,
         "response_type": "code",
         "redirect_uri": actual_redirect_uri,
-    })
+    }
+    if state:
+        query_payload["state"] = state
+    query = urlencode(query_payload)
     return {
         "auth_url": f"{FEISHU_AUTHORIZE_URL}?{query}",
         "redirect_uri": actual_redirect_uri,
@@ -141,7 +147,6 @@ def exchange_feishu_code_for_gateway_token(
     token, ttl = issue_gateway_token(config, principal)
     name = profile.get("name")
     open_id = profile.get("open_id")
-    email = profile.get("email")
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -150,7 +155,6 @@ def exchange_feishu_code_for_gateway_token(
             "id": principal.id,
             "roles": sorted(principal.roles),
             "open_id": open_id,
-            "email": email,
             "name": name,
         },
     }
@@ -168,7 +172,6 @@ def resolve_feishu_user(users: list[FeishuUserConfig], profile: dict) -> FeishuU
         "feishu user is not mapped to gateway permissions",
         details={
             "open_id": open_id,
-            "email": profile.get("email"),
             "name": name,
         },
     )

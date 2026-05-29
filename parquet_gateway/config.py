@@ -43,7 +43,6 @@ class FeishuConfig(BaseModel):
 class FeishuUserConfig(BaseModel):
     open_id: str | None = None
     name: str | None = None
-    email: str | None = None
     id: str
     roles: list[str] = Field(default_factory=list)
     attributes: dict[str, Any] = Field(default_factory=dict)
